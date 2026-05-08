@@ -11,8 +11,8 @@ const axiosClient = axios.create({
 // --- 1. GẮN TOKEN VÀO HEADER ---
 axiosClient.interceptors.request.use(
   (config) => {
-    // Thống nhất chỉ lấy 'token' để khớp với code Backend
-    const token = localStorage.getItem('token');
+    // Kiểm tra cả 2 loại key token có thể có
+    const token = localStorage.getItem('token') || localStorage.getItem('ACCESS_TOKEN');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

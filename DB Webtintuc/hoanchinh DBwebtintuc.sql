@@ -1,29 +1,27 @@
 -- ======================================================
--- Hệ thống: Quản lý tin tức (Bản bảo vệ dữ liệu)
+-- Hệ thống: Quản lý tin tức (Bản sửa lỗi & Tối ưu)
 -- ======================================================
 
--- 1. Thiết lập hệ thống (Giữ nguyên)
 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;
 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO';
 
--- 2. Khởi tạo Database (Dùng IF NOT EXISTS để không xóa dữ liệu cũ)
 CREATE DATABASE IF NOT EXISTS news_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE news_management;
 
--- 3. Cấu trúc bảng roles (Dùng IF NOT EXISTS)
+-- 1. Bảng roles
 CREATE TABLE IF NOT EXISTS `roles` (
   `role_id` int NOT NULL PRIMARY KEY,
   `role_name` varchar(50) NOT NULL UNIQUE,
   `description` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB;
 
-INSERT IGNORE INTO `roles` VALUES 
+INSERT IGNORE INTO `roles` VALUES  
 (1, 'admin', 'Toàn quyền hệ thống'),
 (2, 'editor', 'Biên tập viên viết bài'),
 (3, 'user', 'Người dùng phổ thông');
 
--- 4. Cấu trúc bảng users
+-- 2. Bảng users (ĐÃ ĐỔI TÊN TẠI ĐÂY)
 CREATE TABLE IF NOT EXISTS `users` (
   `user_id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `username` varchar(50) NOT NULL UNIQUE,
@@ -37,25 +35,25 @@ CREATE TABLE IF NOT EXISTS `users` (
   CONSTRAINT `fk_users_roles` FOREIGN KEY (`role_id`) REFERENCES `roles` (`role_id`)
 ) ENGINE=InnoDB;
 
-INSERT IGNORE INTO `users` (`user_id`, `username`, `password`, `full_name`, `email`, `role_id`) VALUES 
-(1, 'admin_tong', 'admin2026', 'Nguyễn Quản Trị', 'admin@news.com', 1),
+INSERT IGNORE INTO `users` (`user_id`, `username`, `password`, `full_name`, `email`, `role_id`) VALUES  
+(1, 'admin_tong', 'admin2026', 'admin', 'admin@news.com', 1), -- Đã đổi thành 'admin'
 (2, 'bientap_vien', '123456', 'Trần Văn Biên', 'editor@news.com', 2),
 (3, 'nguoidung_01', '123', 'Nguyễn Văn Độc Giả', 'nguoidung@gmail.com', 3);
 
--- 5. Cấu trúc bảng categories
+-- 3. Bảng categories
 CREATE TABLE IF NOT EXISTS `categories` (
   `cat_id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `cat_name` varchar(50) NOT NULL UNIQUE,
   `slug` varchar(100) NOT NULL UNIQUE
 ) ENGINE=InnoDB;
 
-INSERT IGNORE INTO `categories` (`cat_id`, `cat_name`, `slug`) VALUES 
+INSERT IGNORE INTO `categories` (`cat_id`, `cat_name`, `slug`) VALUES  
 (1, 'XÃ HỘI', 'xa-hoi'),
 (2, 'CÔNG NGHỆ', 'cong-nghe'),
 (3, 'GIẢI TRÍ', 'giai-tri'),
 (4, 'THỂ THAO', 'the-thao');
 
--- 6. Cấu trúc bảng news (Bảng quan trọng nhất)
+-- 4. Bảng news
 CREATE TABLE IF NOT EXISTS `news` (
   `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `title` varchar(255) NOT NULL,
@@ -70,27 +68,31 @@ CREATE TABLE IF NOT EXISTS `news` (
   `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FULLTEXT KEY `idx_fulltext_search` (`title`, `summary`, `content`),
-CONSTRAINT `fk_news_author` FOREIGN KEY (`author_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_news_author` FOREIGN KEY (`author_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
   CONSTRAINT `fk_news_cat` FOREIGN KEY (`cat_id`) REFERENCES `categories` (`cat_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- CHÚ Ý: Sử dụng INSERT IGNORE để nếu bạn đã nhập bài viết từ Web, 
--- dòng lệnh này sẽ bị hệ thống bỏ qua, không ghi đè lên dữ liệu của bạn.
-INSERT IGNORE INTO `news` (`id`, `title`, `slug`, `summary`, `content`, `author_id`, `cat_id`, `views`, `is_breaking`, `image_url`) VALUES 
+INSERT IGNORE INTO `news` (`id`, `title`, `slug`, `summary`, `content`, `author_id`, `cat_id`, `views`, `is_breaking`, `image_url`) VALUES  
 (1, 'Lộ diện AI mới 2026', 'lo-dien-ai-moi-2026', 'Gemini 3 Flash xử lý siêu tốc.', 'Nội dung mẫu...', 1, 2, 1024, 1, 'default.jpg');
 
--- 7. Cấu trúc bảng comments
+-- 5. Bảng comments
 CREATE TABLE IF NOT EXISTS `comments` (
-  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  `news_id` int NOT NULL,
-  `user_id` int NOT NULL,
-  `content` text NOT NULL,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT `fk_comments_news` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_comments_users` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+    `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `user_id` int NOT NULL,          
+    `content` TEXT NOT NULL,            
+    `news_id` int DEFAULT NULL,       
+    `target_type` VARCHAR(50) DEFAULT 'news', 
+    `parent_id` int DEFAULT NULL,    
+    `status` TINYINT DEFAULT 1,         
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT `fk_comment_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_comment_news` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_comment_parent` FOREIGN KEY (`parent_id`) REFERENCES `comments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 8. VIEW Thống kê (Dùng CREATE OR REPLACE để luôn cập nhật logic mới nhất)
+-- 6. VIEW Thống kê
 CREATE OR REPLACE VIEW view_news_dashboard AS
 SELECT 
     n.id, 
@@ -104,22 +106,10 @@ FROM news n
 LEFT JOIN categories c ON n.cat_id = c.cat_id
 JOIN users u ON n.author_id = u.user_id;
 
--- Khôi phục thiết lập
-SET SQL_MODE=@OLD_SQL_MODE;
-SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
-SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
-
--- KIỂM TRA
-SELECT * FROM view_news_dashboard ORDER BY id DESC;
-
--- ======================================================
--- MỞ RỘNG SPRINT 2: PROFILE VÀ MẠNG XÃ HỘI
--- ======================================================
-
--- Tạo bảng user_profiles (Quan hệ 1-1 với users)
+-- 7. Mở rộng (Profile, Follows, Media, Logs)
 CREATE TABLE IF NOT EXISTS `user_profiles` (
   `profile_id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  `user_id` int NOT NULL UNIQUE, -- UNIQUE để đảm bảo quan hệ 1-1
+  `user_id` int NOT NULL UNIQUE,
   `bio` text,
   `phone_number` varchar(15) DEFAULT NULL,
   `address` varchar(255) DEFAULT NULL,
@@ -127,7 +117,6 @@ CREATE TABLE IF NOT EXISTS `user_profiles` (
   CONSTRAINT `fk_profile_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Tạo bảng follows (Tính năng theo dõi tác giả)
 CREATE TABLE IF NOT EXISTS `follows` (
   `follower_id` int NOT NULL,
   `following_id` int NOT NULL,
@@ -137,11 +126,6 @@ CREATE TABLE IF NOT EXISTS `follows` (
   CONSTRAINT `fk_following` FOREIGN KEY (`following_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- ======================================================
--- MỞ RỘNG SPRINT 3 & 4: MEDIA VÀ BẢO MẬT
--- ======================================================
-
--- Tạo bảng media chuyên biệt (Quản lý ảnh/video tải lên Cloud)
 CREATE TABLE IF NOT EXISTS `media` (
   `media_id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `news_id` int DEFAULT NULL,
@@ -153,16 +137,30 @@ CREATE TABLE IF NOT EXISTS `media` (
   CONSTRAINT `fk_media_uploader` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Tạo bảng audit_logs (Nhật ký hệ thống)
 CREATE TABLE IF NOT EXISTS `audit_logs` (
   `log_id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `user_id` int NOT NULL,
-  `action` varchar(255) NOT NULL, -- Ví dụ: "Xóa bài viết", "Đổi quyền"
+  `action` varchar(255) NOT NULL,
   `ip_address` varchar(45) DEFAULT NULL,
   `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT `fk_audit_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Cập nhật lại bảng news (Loại bỏ cột image_url vì đã có bảng media)
--- (Lưu ý: Chỉ chạy lệnh này khi đã chuyển hết dữ liệu ảnh cũ sang bảng media)
--- ALTER TABLE `news` DROP COLUMN `image_url`;
+-- Khôi phục thiết lập
+SET SQL_MODE=@OLD_SQL_MODE;
+SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
+SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
+
+-- KIỂM TRA
+SELECT * FROM view_news_dashboard ORDER BY id DESC;
+
+-- Bảng ghi chép chi tiết lượt xem (để thống kê và chống spam)
+CREATE TABLE IF NOT EXISTS `view_logs` (
+    `log_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `news_id` INT NOT NULL,
+    `user_id` INT DEFAULT NULL,      -- NULL nếu là khách (guest)
+    `ip_address` VARCHAR(45),        -- Lưu IP để tránh spam F5
+    `viewed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT `fk_view_news` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
